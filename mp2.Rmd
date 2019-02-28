@@ -149,7 +149,7 @@ training <- training %>%
   arrange(fold)
 
 df_RMLSE <- tibble(
-  df = c(2:99),
+  df = c(2:50),
   RMLSE = 0
 )
   
@@ -167,7 +167,6 @@ for(i in 1:nrow(df_RMLSE)){
     model_1_formula <- as.formula("log10_SalePrice~log10_GrLivArea + HouseStyle")
     model_1 <- lm(model_1_formula, data = pretend_training)
   
-
   #Extract regression table with confidence intervals
   model_1 %>%
     broom::tidy(conf.int = TRUE)
