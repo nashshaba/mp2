@@ -143,78 +143,39 @@ ggplot(training, aes(x = log10_GrLivArea, y = log10_SalePrice,colour = factor(Ho
 Implement crossvalidation from scratch here. In other words, don't use an existing function, but rather program your own. 
 
 ```{r}
-training <- training %>% 
-  sample_frac(1) %>% 
-  mutate(fold = rep(1:5, length = n())) %>% 
-  arrange(fold)
+pretend_train <- training %>%
+  sample_frac(0.75)
+pretend_test <- test %>%
+  anti_join(pretend_train, by="Id")
 
-df_RMLSE <- tibble(
-  df = c(2:50),
-  RMLSE = 0
-)
-  
-for(i in 1:nrow(df_RMLSE)){
-  df <- df_RMLSE$df[i]
-  
-  RMLSE <- rep(0, 5)
-  for(j in 1:5){
-    pretend_training <- training %>% 
-      filter(fold != j)
-    pretend_test <- training %>% 
-      filter(fold == j)
-    
-    # Fit model on pretend training
-    model_1_formula <- as.formula("log10_SalePrice~log10_GrLivArea + HouseStyle")
-    model_1 <- lm(model_1_formula, data = pretend_training)
-  
-  #Extract regression table with confidence intervals
-  model_1 %>%
-    broom::tidy(conf.int = TRUE)
+glimpse(pretend_train)
+glimpse(pretend_test)
 
- #Extract point-by-point info of points used to fit model
-  fitted_points_1 <- model_1 %>%
-    broom::augment()
-  fitted_points_1
-
-  # Extract model summary info
-  model_1 %>%
-    broom::glance()
-  
-  # Make predictions on test data. Compare this to use of broom::augment()
-  # for fitted_points()
-  predicted_points_1 <- model_1 %>%
-   broom::augment(newdata = pretend_test)
-   
-  predicted_points_1 
-    
-    # Save predictions in pretend_test data frame
-    pretend_test <- pretend_test %>% 
-      mutate(
-        log10_SalePrice_hat = predicted_points_1$.fitted,
-        SalePrice_hat = 10^log10_SalePrice_hat
-      )
-    
-    RMLSE[j] <- pretend_test %>% 
-      mutate(
-        residual = log(SalePrice + 1) - log(SalePrice_hat + 1),
-        residual_sq = residual^2
-      ) %>% 
-      summarize(
-        MLSE = mean(residual_sq),
-        RMLSE = sqrt(MLSE)
-      ) %>% 
-      pull(RMLSE)
-  }
-  
-  df_RMLSE$RMLSE[i] <- mean(RMLSE) 
-}
 ```
-
-## Visualization justifying your choice of "optimal" df
-
-This subsection relates to the **point of diminishing returns** step of the grading scheme: a visualization like [Lec01 slides \#36](http://rudeboybert.rbind.io/talk/2019-01-13-Williams.pdf#page=36){target="_blank"} justifying your choice of optimal `df^*`. 
-
 ```{r}
-ggplot(df_RMLSE, aes(x = df, y = RMLSE)) +
-  geom_line()
+# Fit model to taining data
+model_1_formula <- as.formula("log10_SalePrice ~ log10_GrLivArea + HouseStyle")
+model_1 <- lm(model_1_formula, data = pretend_train)
+
+#Extract regression table with confidence intervals
+model_1 %>%
+  broom::tidy(conf.int = TRUE)
+
+#Extract point-by-point info of points used to fit model
+fitted_points_1 <- model_1 %>%
+  broom::augment()
+fitted_points_1
+
+#Extract model summary info
+model_1 %>%
+  broom::glance()
+
+#Make predictions on test data. Compare this to use of broom::augment() for fitted_points()
+predicted_points_1 <- model_1 %>%
+  broom::augment(newdata = pretend_test)
+predicted_points_1
+
+
 ```
+
+
