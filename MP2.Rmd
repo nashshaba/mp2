@@ -79,6 +79,23 @@ glimpse(sample_submission)
 As much as possible, try to do all your data wrangling here:
 
 ```{r}
+training1 <- training %>%
+  select(Id, SalePrice, GrLivArea, HouseStyle)
+
+test1 <- test %>%
+  select(Id, GrLivArea, HouseStyle)
+
+training1_1 <- training1 %>%
+  mutate(log10_SalePrice = log10(SalePrice),
+         log10_GrLivArea = log10(GrLivArea))
+
+pretend_train <- training1_1 %>%
+  sample_frac(0.75)
+pretend_test <- training1_1 %>%
+  anti_join(pretend_train, by="Id")
+
+glimpse(pretend_train)
+glimpse(pretend_test)
 
 ```
 
@@ -93,6 +110,29 @@ As much as possible, try to do all your data wrangling here:
 ## Model fitting
 
 ```{r}
+# 1. Fit model to training data
+model_1_formula <- as.formula("SalePrice ~ GrLivArea + HouseStyle")
+model_1 <- lm(model_1_formula, data = training1)
+
+# 2.a) Extract regression table with confidence intervals
+model_1 %>%
+  broom::tidy(conf.int = TRUE)
+
+# 2.b) Extract point-by-point info of points used to fit model
+fitted_points_1 <- model_1 %>%
+  broom::augment()
+fitted_points_1
+
+# 2.c) Extract model summary info
+model_1 %>%
+  broom::glance()
+
+# 3. Make predictions on test data. Compare this to use of broom::augment()
+# for fitted_points()
+predicted_points_1 <- model_1 %>%
+  broom::augment(newdata = test1)
+predicted_points_1
+
 
 ```
 
@@ -100,7 +140,49 @@ As much as possible, try to do all your data wrangling here:
 ## Estimate of your Kaggle score
 
 ```{r}
+# 1. Fit model to pretend training data
+model_1_formula <- as.formula("log10_SalePrice ~ log10_GrLivArea + HouseStyle")
+model_1 <- lm(model_1_formula, data = pretend_train)
 
+# 2.a) Extract regression table with confidence intervals
+model_1 %>%
+  broom::tidy(conf.int = TRUE)
+
+# 2.b) Extract point-by-point info of points used to fit model
+fitted_points_1 <- model_1 %>%
+  broom::augment()
+fitted_points_1
+
+# 2.c) Extract model summary info
+model_1 %>%
+  broom::glance()
+
+# 3. Make predictions on pretend test data. Compare this to use of broom::augment()
+# for fitted_points()
+predicted_points_1 <- model_1 %>%
+  broom::augment(newdata = pretend_test)
+predicted_points_1
+
+# Save predictions in pretend_test data frame
+pretend_test <- pretend_test %>% 
+  mutate(log10_SalePrice_hat = predicted_points_1$.fitted,
+        SalePrice_hat = 10^log10_SalePrice_hat
+      )
+
+pretend_test <- pretend_test %>% 
+      mutate(
+        residual = log(SalePrice + 1) - log(SalePrice_hat + 1),
+        residual_sq = residual^2
+      ) 
+
+rmlse <- pretend_test %>% 
+      summarize(
+        MLSE = mean(residual_sq),
+        RMLSE = sqrt(MLSE)
+      ) %>% 
+      pull(RMLSE)
+
+rmlse
 ```
 
 
