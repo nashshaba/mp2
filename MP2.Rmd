@@ -1,6 +1,6 @@
 ---
 title: "SDS/CSC 293 Mini-Project 2: Multiple Regression"
-author: "Group XX: WRITE YOUR NAMES HERE"
+author: "Group 11: Nashshaba Nawaz & Cassidy Maher"
 date: "Wednesday, March 6^th^, 2019"
 output:
   html_document:
