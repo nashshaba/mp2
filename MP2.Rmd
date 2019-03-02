@@ -51,253 +51,168 @@ test <- read_csv("data/test.csv")
 sample_submission <- read_csv("data/sample_submission.csv")
 ```
 
-Before performing any model fitting, you should always conduct an exploratory data analysis. This will help guide and inform your model fitting. 
 
-## Look at your data!
-
-Always, ALWAYS, **ALWAYS** start by looking at your raw data. This gives you visual sense of what information you have to help build your predictive models. To get a full description of each variable, read the data dictionary in the `data_description.txt` file in the `data/` folder.
-
-Note that the following code chunk has `eval = FALSE` meaning "don't evaluate this chunk with knitting" because `.Rmd` files won't knit if they include a `View()`:
-
-```{r, eval = FALSE}
-View(training)
-glimpse(training)
-
-View(test)
-glimpse(test)
-```
-
-In particular, pay close attention to the variables and variable types in the
-`sample_submission.csv`. Your submission must match this exactly.
-
-```{r}
-glimpse(sample_submission)
-```
 
 ## Data wrangling
 
 As much as possible, try to do all your data wrangling here:
 
 ```{r}
-training1 <- training %>%
-  select(Id, SalePrice, GrLivArea, HouseStyle)
-
-test1 <- test %>%
-  select(Id, GrLivArea, HouseStyle)
-
-training1_1 <- training1 %>%
+training<- training %>%
   mutate(log10_SalePrice = log10(SalePrice),
          log10_GrLivArea = log10(GrLivArea))
 
-pretend_train <- training1_1 %>%
+test <- test %>%
+  mutate(log10_GrLivArea = log10(GrLivArea))
+
+pretend_train <- training %>%
   sample_frac(0.75)
-pretend_test <- training1_1 %>%
+pretend_test <- training %>%
   anti_join(pretend_train, by="Id")
 
-glimpse(pretend_train)
-glimpse(pretend_test)
-
+# Convert all character variables to factors for better modeling
+pretend_train <- pretend_train %>% mutate_if(is.character, as.factor)
+pretend_test <- pretend_test %>% mutate_if(is.character, as.factor)
 ```
 
 
 
 ***
 
-
-
 # Minimally viable product
 
 ## Model fitting
-
 ```{r}
-# 1. Fit model to training data
-model_1_formula <- as.formula("SalePrice ~ GrLivArea + HouseStyle")
-model_1 <- lm(model_1_formula, data = training1)
-
-# 2.a) Extract regression table with confidence intervals
-model_1 %>%
-  broom::tidy(conf.int = TRUE)
-
-# 2.b) Extract point-by-point info of points used to fit model
-fitted_points_1 <- model_1 %>%
-  broom::augment()
-fitted_points_1
-
-# 2.c) Extract model summary info
-model_1 %>%
-  broom::glance()
-
-# 3. Make predictions on test data. Compare this to use of broom::augment()
-# for fitted_points()
-predicted_points_1 <- model_1 %>%
-  broom::augment(newdata = test1)
-predicted_points_1
-
-
-```
-
-
-## Estimate of your Kaggle score
-
-```{r}
+# MINIMALLY VIABLE PRODUCT
 # 1. Fit model to pretend training data
 model_1_formula <- as.formula("log10_SalePrice ~ log10_GrLivArea + HouseStyle")
-model_1 <- lm(model_1_formula, data = pretend_train)
+model_1 <- lm(model_1_formula, data = training)
 
-# 2.a) Extract regression table with confidence intervals
-model_1 %>%
-  broom::tidy(conf.int = TRUE)
+# Fit MVP model on actual test data and submit to Kaggle
+predicted_points <- model_1 %>%
+  broom::augment(newdata = test)
 
-# 2.b) Extract point-by-point info of points used to fit model
-fitted_points_1 <- model_1 %>%
-  broom::augment()
-fitted_points_1
+test <- test %>% 
+  mutate(log10_SalePrice_hat = predicted_points$.fitted,
+        SalePrice_hat = 10^log10_SalePrice_hat)
+```
 
-# 2.c) Extract model summary info
-model_1 %>%
-  broom::glance()
+## Create your submission CSV
+```{r}
+submission <- test %>%
+  mutate(SalePrice = SalePrice_hat) %>%
+  select(Id, SalePrice)
 
-# 3. Make predictions on pretend test data. Compare this to use of broom::augment()
-# for fitted_points()
+write.csv(submission, "data/submission_mvp.csv", row.names = F)
+```
+
+## Screenshot of your Kaggle score
+![](first_submission.png){ width=100% }
+
+***
+
+
+# Due diligence
+Obtain an estimate $\widehat{RMLSE}$ that closely matches the RMLSE that Kaggle returns.
+
+```{r}
+# Calculate RMLSE for MVP model with one numeric and one categorical predictor - 0.2564427
+
+# Make predictions on pretend test data. 
 predicted_points_1 <- model_1 %>%
   broom::augment(newdata = pretend_test)
-predicted_points_1
 
 # Save predictions in pretend_test data frame
 pretend_test <- pretend_test %>% 
   mutate(log10_SalePrice_hat = predicted_points_1$.fitted,
-        SalePrice_hat = 10^log10_SalePrice_hat
-      )
+        SalePrice_hat = 10^log10_SalePrice_hat)
 
 pretend_test <- pretend_test %>% 
-      mutate(
-        residual = log(SalePrice + 1) - log(SalePrice_hat + 1),
-        residual_sq = residual^2
-      ) 
+      mutate(residual = log(SalePrice + 1) - log(SalePrice_hat + 1),
+        residual_sq = residual^2) 
 
-rmlse <- pretend_test %>% 
+rmlse1 <- pretend_test %>% 
       summarize(
         MLSE = mean(residual_sq),
         RMLSE = sqrt(MLSE)
       ) %>% 
       pull(RMLSE)
-
-rmlse
+rmlse1
 ```
 
 
-## Create your submission CSV
-
-```{r}
-submission <- sample_submission %>% 
-  mutate(SalePrice = mean(training$SalePrice))
-
-write_csv(submission, path = "data/submission_mvp.csv")
-```
-
-
-## Screenshot of your Kaggle score
-
-Our score based on our submission's "Root Mean Squared Logarithmic Error" was 0.42918.
-
-![](score_screenshot.png){ width=100% }
-
-
-## Comparisons of estimated scores and Kaggle scores
-
-
-
-
+The estimated RMLSE from the pretend test data is 0.256 as compared to the actual Kaggle score of 0.253. These are very close!
 
 ***
-
-
-
-
-
-# Due diligence
-
-## Model fitting
-
-```{r}
-
-```
-
-
-## Estimate of your Kaggle score
-
-```{r}
-
-```
-
-
-## Create your submission CSV
-
-```{r}
-submission <- sample_submission %>% 
-  mutate(SalePrice = mean(training$SalePrice))
-
-write_csv(submission, path = "data/submission_due_diligence.csv")
-```
-
-
-## Screenshot of your Kaggle score
-
-Our score based on our submission's "Root Mean Squared Logarithmic Error" was 0.42918.
-
-![](score_screenshot.png){ width=100% }
-
-
-## Comparisons of estimated scores and Kaggle scores
-
-
-
-
-
-***
-
-
-
 
 
 # Reaching for the stars
 
-## Model fitting
 
 ```{r}
+# REACHING FOR THE STARS
 
+# Fit model with three arbitrarily chosen numerical and three categorical predictors to pretend training data
+model_2_formula <- as.formula("log10_SalePrice ~ log10_GrLivArea + OverallQual + LotArea +
+                              HouseStyle + Neighborhood + SaleCondition")
+model_2 <- lm(model_2_formula, data = pretend_train)
+
+# Make predictions on pretend test data
+predicted_points_2 <- model_2 %>%
+  broom::augment(newdata = pretend_test)
+
+# Save predictions in pretend_test data frame
+pretend_test <- pretend_test %>% 
+  mutate(log10_SalePrice_hat = predicted_points_2$.fitted,
+        SalePrice_hat = 10^log10_SalePrice_hat)
+
+pretend_test2 <- pretend_test %>% 
+      mutate(residual = log(SalePrice + 1) - log(SalePrice_hat + 1),
+             residual_sq = residual^2) 
+
+# Calculate RMLSE - 0.1734234
+rmlse2 <- pretend_test2 %>% 
+      summarize(
+        MLSE = mean(residual_sq),
+        RMLSE = sqrt(MLSE)
+      ) %>% 
+      pull(RMLSE)
+rmlse2 
+
+# COMPARE TO RMLSE FROM MINIMALLY VIABLE PRODUCT
+# The RMLSE for the model with three categorical and three predictor variables has a smaller RMLSE than the model with only one each of numeric and categorical predictors (0.246 vs 0.173).
 ```
-
-
-## Estimate of your Kaggle score
 
 ```{r}
+# Do actual prediction on all of training data using the reaching for the stars model
+model_2 <- lm(model_2_formula, data = training)
 
+predicted_points2 <- model_2 %>%
+  broom::augment(newdata = test)
 ```
-
 
 ## Create your submission CSV
 
 ```{r}
-submission <- sample_submission %>% 
-  mutate(SalePrice = mean(training$SalePrice))
+test2 <- test %>%
+  mutate(log10_SalePrice_hat = predicted_points2$.fitted,
+         SalePrice = 10^log10_SalePrice_hat)
 
-write_csv(submission, path = "data/submission_reach_for_stars.csv")
+submission2 <- test2 %>%
+  select(Id, SalePrice)
+
+write_csv(submission2, path = "data/submission_reach_for_stars.csv")
 ```
 
 
 ## Screenshot of your Kaggle score
 
-Our score based on our submission's "Root Mean Squared Logarithmic Error" was 0.42918.
-
-![](score_screenshot.png){ width=100% }
+![](second_submission.png){ width=100% }
 
 
 ## Comparisons of estimated scores and Kaggle scores
 
-
-
-
+Our score based on our submission's "Root Mean Squared Logarithmic Error" was 0.16273. This is very close to what our RMLSE hat of 0.1676 that we calculated up above.
 
 
 ***
