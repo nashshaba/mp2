@@ -60,10 +60,12 @@ As much as possible, try to do all your data wrangling here:
 ```{r}
 training<- training %>%
   mutate(log10_SalePrice = log10(SalePrice),
-         log10_GrLivArea = log10(GrLivArea))
+         log10_GrLivArea = log10(GrLivArea),
+         MSSubClass = as.factor(MSSubClass))
 
 test <- test %>%
-  mutate(log10_GrLivArea = log10(GrLivArea))
+  mutate(log10_GrLivArea = log10(GrLivArea),
+         MSSubClass = as.factor(MSSubClass))
 
 pretend_train <- training %>%
   sample_frac(0.75)
@@ -73,6 +75,9 @@ pretend_test <- training %>%
 # Convert all character variables to factors for better modeling
 pretend_train <- pretend_train %>% mutate_if(is.character, as.factor)
 pretend_test <- pretend_test %>% mutate_if(is.character, as.factor)
+
+training <- training %>% mutate_if(is.character, as.factor)
+test <- test %>% mutate_if(is.character, as.factor)
 ```
 
 
@@ -226,24 +231,59 @@ Our score based on our submission's "Root Mean Squared Logarithmic Error" was 0.
 ## Model fitting
 
 ```{r}
+# REACHING FOR THE STARS
 
+# Fit model with three arbitrarily chosen numerical and three categorical predictors to pretend training data
+model_3_formula <- as.formula("log10_SalePrice ~ log10_GrLivArea + OverallQual + LotArea +
+                              HouseStyle + Neighborhood + SaleCondition + Condition1 + OverallCond + YearBuilt +
+                              CentralAir + KitchenQual + Functional + Fireplaces + WoodDeckSF")
+model_3 <- lm(model_3_formula, data = pretend_train)
+
+# Make predictions on pretend test data
+predicted_points_3 <- model_3 %>%
+  broom::augment(newdata = pretend_test)
+
+# Save predictions in pretend_test data frame
+pretend_test <- pretend_test %>% 
+  mutate(log10_SalePrice_hat = predicted_points_3$.fitted,
+        SalePrice_hat = 10^log10_SalePrice_hat)
+
+pretend_test3 <- pretend_test %>% 
+      mutate(residual = log(SalePrice + 1) - log(SalePrice_hat + 1),
+             residual_sq = residual^2) 
+
+# Calculate RMLSE - 0.1734234
+rmlse3 <- pretend_test3 %>% 
+      summarize(
+        MLSE = mean(residual_sq),
+        RMLSE = sqrt(MLSE)
+      ) %>% 
+      pull(RMLSE)
+rmlse3
 ```
 
 
 ## Estimate of your Kaggle score
 
 ```{r}
-
+MASS::stepAIC(model_3, direction = "both")
 ```
 
 
 ## Create your submission CSV
 
 ```{r}
-submission <- sample_submission %>% 
-  mutate(SalePrice = mean(training$SalePrice))
+predicted_points3 <- model_3 %>%
+  broom::augment(newdata = test)
 
-write_csv(submission, path = "data/submission_diminishing_returns.csv")
+test3 <- test %>%
+  mutate(log10_SalePrice_hat = predicted_points3$.fitted,
+         SalePrice = 10^log10_SalePrice_hat)
+
+submission3 <- test3 %>%
+  select(Id, SalePrice)
+
+write_csv(submission3, path = "data/submission_diminishing_returns.csv")
 ```
 
 
@@ -251,7 +291,7 @@ write_csv(submission, path = "data/submission_diminishing_returns.csv")
 
 Our score based on our submission's "Root Mean Squared Logarithmic Error" was 0.42918.
 
-![](score_screenshot.png){ width=100% }
+![](third_submission.png){ width=100% }
 
 
 ## Comparisons of estimated scores and Kaggle scores
