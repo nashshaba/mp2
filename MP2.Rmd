@@ -4,7 +4,6 @@ author: "Group 11: Nashshaba Nawaz & Cassidy Maher"
 date: "Wednesday, March 6^th^, 2019"
 output:
   html_document:
-    code_folding: hide
     highlight: tango
     theme: cosmo
     toc: yes
@@ -84,7 +83,7 @@ pretend_test <- pretend_test %>% mutate_if(is.character, as.factor)
 ## Model fitting
 ```{r}
 # MINIMALLY VIABLE PRODUCT
-# 1. Fit model to pretend training data
+# 1. Fit model to training data
 model_1_formula <- as.formula("log10_SalePrice ~ log10_GrLivArea + HouseStyle")
 model_1 <- lm(model_1_formula, data = training)
 
