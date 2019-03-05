@@ -31,16 +31,22 @@ set.seed(76)
 ```
 
 You will be submiting an entry to Kaggle's [House Prices: Advanced Regression Techniques](https://www.kaggle.com/c/house-prices-advanced-regression-techniques/){target="_blank"} by fitting a **multiple regression** model $\hat{f}(x)$.
+
 ***
+
 # EDA
+
 Read in data provided by Kaggle for this competition. They are organized in the `data/` folder of this RStudio project:
+
 ```{r}
 training <- read_csv("data/train.csv")
 test <- read_csv("data/test.csv")
 sample_submission <- read_csv("data/sample_submission.csv")
 ```
 ## Data wrangling
+
 As much as possible, try to do all your data wrangling here:
+
 ```{r}
 # Do a log10 xform on sale price to prevent negative price predictions later on
 training <- training %>%
@@ -50,12 +56,16 @@ training <- training %>%
 test <- test %>%
   mutate(log10_GrLivArea = log10(GrLivArea),
          MSSubClass = as.factor(MSSubClass))
+
 # Convert all character variables to factors
 training <- training %>% mutate_if(is.character, as.factor)
 test <- test %>% mutate_if(is.character, as.factor)
 ```
 ## Visualizations
+
 We examined the relationships between the outcome variable and the predictors of each model while determining which variables would be good to use in the model. Though we will not include those visualizations here, it is important to note that we looked at them while determining what best predictor variables might be available for the strongest relationships with our outcome variable.
+
+
 ```{r}
 plot1 <- ggplot(training, aes(x = log10_GrLivArea, y = log10_SalePrice)) +
   geom_point() +
@@ -63,6 +73,7 @@ plot1 <- ggplot(training, aes(x = log10_GrLivArea, y = log10_SalePrice)) +
        y = "log10(Sale price in USD)",
        title = "Relationship of temporary outcome variable and numerical predictor variable")
 ```
+
 ```{r}
 plot2 <- ggplot(training, aes(x = HouseStyle, y = log10_SalePrice)) +
   geom_boxplot(fill =  "darkolivegreen1") +
@@ -70,13 +81,17 @@ plot2 <- ggplot(training, aes(x = HouseStyle, y = log10_SalePrice)) +
        y = "log10(Sale price in USD)",
        title = "Relationship of temporary outcome variable and categorical predictor variable")
 ```
+
 ```{r}
 require(gridExtra)
 grid.arrange(plot1, plot2, ncol=2)
 ```
+
 ***
+
 # Minimally viable product
 ## Model fitting
+
 ```{r}
 # MINIMALLY VIABLE PRODUCT
 # 1. Fit model to training data
@@ -89,15 +104,19 @@ test <- test %>%
   mutate(log10_SalePrice_hat = predicted_points$.fitted,
         SalePrice_hat = 10^log10_SalePrice_hat)
 ```
+
 ## Create your submission CSV
+
 ```{r}
 submission <- test %>%
   mutate(SalePrice = SalePrice_hat) %>%
   select(Id, SalePrice)
 write.csv(submission, "data/submission_mvp.csv", row.names = F)
 ```
+
 ## Screenshot of your Kaggle score
 ![](first_submission.png){ width=100% }
+
 ***
 # Due diligence
 Obtain an estimate $\widehat{RMLSE}$ that closely matches the RMLSE that Kaggle returns.
@@ -107,6 +126,7 @@ training <- training %>%
   sample_frac(1) %>% 
   mutate(fold = rep(1:5, length = n())) %>% 
   arrange(fold)
+
 RMLSE <- rep(0, 5)
   
 for(j in 1:5) {
@@ -118,6 +138,7 @@ for(j in 1:5) {
   # Fit model on pretend training
   model_1_formula <- as.formula("log10_SalePrice ~ log10_GrLivArea + HouseStyle")
   model_1 <- lm(model_1_formula, data = pretend_training)
+
   # Make predictions on pretend test data. 
   predicted_points_1 <- model_1 %>%
     broom::augment(newdata = pretend_test)
@@ -142,21 +163,30 @@ for(j in 1:5) {
 RMLSE_hat <- mean(RMLSE)
 RMLSE_hat
 ```
+
 The estimated RMLSE from the 5-fold CV is 0.24155 as compared to the actual Kaggle score of 0.253. These are very close!
+
+
 ***
+
 # Reaching for the stars
+
 ```{r}
 # Prediction on all of training data using the reaching for the stars model
 # to submit to Kaggle
 model_2_formula <- as.formula("log10_SalePrice ~ log10_GrLivArea + OverallQual + LotArea +
                               HouseStyle + Neighborhood + SaleCondition")
+
 model_2 <- lm(model_2_formula, data = training)
+
 predicted_points2 <- model_2 %>%
   broom::augment(newdata = test)
+
 test2 <- test %>%
   mutate(log10_SalePrice_hat = predicted_points2$.fitted,
          SalePrice = 10^log10_SalePrice_hat)
 ```
+
 ```{r}
 # Use 5-fold CV to confirm that our RMLSE is similar to the one provided by Kaggle
 RMLSE2 <- rep(0, 5)
@@ -171,16 +201,24 @@ for(j in 1:5) {
   model_2_formula <- as.formula("log10_SalePrice ~ log10_GrLivArea + OverallQual + LotArea +
                               HouseStyle + Neighborhood + SaleCondition")
   model_2 <- lm(model_2_formula, data = pretend_training)
+
+
   # Make predictions on pretend test data
   predicted_points_2 <- model_2 %>%
     broom::augment(newdata = pretend_test)
+
+
   # Save predictions in pretend_test data frame
   pretend_test <- pretend_test %>% 
     mutate(log10_SalePrice_hat = predicted_points_2$.fitted,
            SalePrice_hat = 10^log10_SalePrice_hat)
+
+
   pretend_test2 <- pretend_test %>% 
     mutate(residual = log(SalePrice + 1) - log(SalePrice_hat + 1),
            residual_sq = residual^2) 
+
+
     
   RMLSE2[j] <- pretend_test2 %>% 
     mutate(
@@ -195,38 +233,57 @@ for(j in 1:5) {
 }
   
 RMLSE2_hat <- mean(RMLSE2)
+
 RMLSE2_hat
+
 # COMPARE TO RMLSE FROM MINIMALLY VIABLE PRODUCT
 # The RMLSE for the model with three categorical and three predictor variables has a smaller RMLSE than the model with only one each of numeric and categorical predictors (0.246 vs 0.173).
 ```
 ## Create your submission CSV
+
 ```{r}
 submission2 <- test2 %>%
   select(Id, SalePrice)
 write_csv(submission2, path = "data/submission_reach_for_stars.csv")
 ```
+
 ## Screenshot of your Kaggle score
 ![](second_submission.png){ width=100% }
+
 ## Comparisons of estimated scores and Kaggle scores
+
 Our score based on our submission's "Root Mean Squared Logarithmic Error" was 0.16273. This is very close to what our RMLSE hat of 0.16222 that we calculated up above using 5-fold CV.
+
+
+
 ***
+
 # Point of diminishing returns
+
 ## Model fitting
+
 In order to create a "better" model, we began with our six predictors from the reaching for the stars model (model_2) and began manually adding predictors and comparing the resulting RMLSEs. If the added predictor lowered the RMLSE, we added it to the model. The point of diminishing returns model is more complex but should produce a lower RMLSE.
+
 ```{r}
 # Prediction on all of training data using the point of diminishing returns model
 # to submit to Kaggle
 model_3_formula <- as.formula("log10_SalePrice ~ log10_GrLivArea + OverallQual + LotArea +
                               HouseStyle + Neighborhood + SaleCondition + Condition1 + OverallCond + YearBuilt +
                               CentralAir + Fireplaces + WoodDeckSF")
+
 model_3 <- lm(model_3_formula, data = training)
+
 predicted_points3 <- model_3 %>%
   broom::augment(newdata = test)
+
+
 test3 <- test %>%
   mutate(log10_SalePrice_hat = predicted_points3$.fitted,
          SalePrice = 10^log10_SalePrice_hat)
 ```
+
 ## Estimate of your Kaggle score
+
 ```{r}
 # Use 5-fold CV to confirm that our RMLSE is similar to the one provided by Kaggle
 RMLSE3 <- rep(0, 5)
@@ -242,15 +299,20 @@ for(j in 1:5) {
                               HouseStyle + Neighborhood + SaleCondition + Condition1 + OverallCond + YearBuilt +
                               CentralAir + Fireplaces + WoodDeckSF")
   model_3 <- lm(model_3_formula, data = pretend_training)
+
   # Make predictions on pretend test data
   predicted_points_3 <- model_3 %>%
     broom::augment(newdata = pretend_test)
+
   # Save predictions in pretend_test data frame
   pretend_test <- pretend_test %>% 
     mutate(SalePrice_hat = 10^(predicted_points_3$.fitted))
+
   pretend_test3 <- pretend_test %>% 
     mutate(residual = log(SalePrice + 1) - log(SalePrice_hat + 1),
            residual_sq = residual^2) 
+
+
     
   RMLSE3[j] <- pretend_test3 %>% 
     mutate(
@@ -265,16 +327,26 @@ for(j in 1:5) {
 }
   
 RMLSE3_hat <- mean(RMLSE3)
+
+
 RMLSE3_hat
+
+
 # The resulting RMLSE from model three of around 0.1436 is lower than that of the MVP model (RMLSE around 0.24) and the reaching for the stars model (RMLSE around 0.1622).
 ```
+
 ## Create your submission CSV
+
 ```{r}
 submission3 <- test3 %>%
   select(Id, SalePrice)
 write_csv(submission3, path = "data/submission_diminishing_returns.csv")
 ```
+
 ## Screenshot of your Kaggle score
 ![](third_submission.png){ width=100% }
+
 ## Comparisons of estimated scores and Kaggle scores
+
 The score returned by Kaggle (0.14086) was very close to what we estimated using 5-fold CV (RMLSE = 0.1436).
+
