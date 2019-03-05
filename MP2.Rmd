@@ -88,6 +88,8 @@ require(gridExtra)
 grid.arrange(plot1, plot2, ncol=2)
 ```
 
+For instance, we can determine that there is a relatively strong positive relationship between the outcome variable, SalePrice, and the numerical predictor variable, GrLivArea, from the scatterplot above. Similarly, we can deduce from the boxplots that houses with two and one-half stories (where the 2nd level of the house is finished) have higher sale prices compared to other styles of dwelling. 
+
 ***
 
 # Minimally viable product
