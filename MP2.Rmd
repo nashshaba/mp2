@@ -66,17 +66,9 @@ test <- test %>%
   mutate(log10_GrLivArea = log10(GrLivArea),
          MSSubClass = as.factor(MSSubClass))
 
-pretend_train <- training %>%
-  sample_frac(0.75)
-pretend_test <- training %>%
-  anti_join(pretend_train, by="Id")
-
-# Convert all character variables to factors for better modeling
-pretend_train <- pretend_train %>% mutate_if(is.character, as.factor)
-pretend_test <- pretend_test %>% mutate_if(is.character, as.factor)
-
 training <- training %>% mutate_if(is.character, as.factor)
 test <- test %>% mutate_if(is.character, as.factor)
+
 ```
 
 
@@ -122,26 +114,46 @@ Obtain an estimate $\widehat{RMLSE}$ that closely matches the RMLSE that Kaggle 
 ```{r}
 # Calculate RMLSE for MVP model with one numeric and one categorical predictor - 0.2564427
 
-# Make predictions on pretend test data. 
-predicted_points_1 <- model_1 %>%
-  broom::augment(newdata = pretend_test)
+training <- training %>% 
+  sample_frac(1) %>% 
+  mutate(fold = rep(1:5, length = n())) %>% 
+  arrange(fold)
 
-# Save predictions in pretend_test data frame
-pretend_test <- pretend_test %>% 
-  mutate(log10_SalePrice_hat = predicted_points_1$.fitted,
+  RMLSE <- rep(0, 5)
+  for(j in 1:5){
+    pretend_training <- training %>% 
+      filter(fold != j)
+    pretend_test <- training %>% 
+      filter(fold == j)
+    
+    # Fit model on pretend training
+    model_1_formula <- as.formula("log10_SalePrice ~ log10_GrLivArea + HouseStyle")
+    model_1 <- lm(model_1_formula, data = pretend_training)
+
+    # Make predictions on pretend test data. 
+    predicted_points_1 <- model_1 %>%
+    broom::augment(newdata = pretend_test)
+    
+    # Save predictions in pretend_test data frame
+    pretend_test <- pretend_test %>% 
+    mutate(log10_SalePrice_hat = predicted_points_1$.fitted,
         SalePrice_hat = 10^log10_SalePrice_hat)
-
-pretend_test <- pretend_test %>% 
-      mutate(residual = log(SalePrice + 1) - log(SalePrice_hat + 1),
-        residual_sq = residual^2) 
-
-rmlse1 <- pretend_test %>% 
+    
+    RMLSE[j] <- pretend_test %>% 
+      mutate(
+        residual = log(SalePrice + 1) - log(SalePrice_hat + 1),
+        residual_sq = residual^2
+      ) %>% 
       summarize(
         MLSE = mean(residual_sq),
         RMLSE = sqrt(MLSE)
       ) %>% 
       pull(RMLSE)
-rmlse1
+  }
+  
+RMLSE_hat <- mean(RMLSE)
+
+RMLSE_hat
 ```
 
 
