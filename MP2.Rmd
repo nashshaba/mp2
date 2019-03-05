@@ -72,7 +72,7 @@ plot1 <- ggplot(training, aes(x = log10_GrLivArea, y = log10_SalePrice)) +
   geom_point() +
   labs(x = "log10(Above ground living area in square feet)", 
        y = "log10(Sale price in USD)",
-       title = "Relationship of temporary outcome variable and numerical predictor variable")
+       title = "SalePrice against GrLivArea")
 ```
 
 ```{r}
@@ -80,7 +80,7 @@ plot2 <- ggplot(training, aes(x = HouseStyle, y = log10_SalePrice)) +
   geom_boxplot(fill =  "darkolivegreen1") +
   labs(x = "Style of Dwelling", 
        y = "log10(Sale price in USD)",
-       title = "Relationship of temporary outcome variable and categorical predictor variable")
+       title = "SalePrice against HouseStyle")
 ```
 
 ```{r}
